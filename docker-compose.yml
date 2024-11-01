@@ -1,6 +1,6 @@
 version: "3.2"
 services:
-  nestjs_api:
+  room-service:
     build:
       dockerfile: ./docker/room-service/Dockerfile
     environment:
@@ -11,15 +11,12 @@ services:
     networks:
       - app-network
 
-  express-gateway:
+  auth-service:
     build:
-      dockerfile: ./docker/express-gateway/Dockerfile
-    ports:
-      - "8080:8080"
+      dockerfile: docker/auth-service/Dockerfile
+    container_name: 'auth-service'
     volumes:
-      - ./express-gateway/config:/usr/src/app/config
-    depends_on:
-      - nestjs_api
+      - ./auth-service/config:/usr/src/app/config
     networks:
       - app-network
 
@@ -40,8 +37,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - express-gateway
-      - nestjs_api
+      - room-service
+      - auth-service
     networks:
       - app-network
 

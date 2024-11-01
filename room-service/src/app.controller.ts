@@ -9,4 +9,10 @@ export class AppController {
   getHello() {
     return {msg:"Hello world!!!!!"};
   }
+
+  @Get('/hello')
+  getApi() {
+    return {msg:"Hello Api!!!!!"};
+  }
+
 }
