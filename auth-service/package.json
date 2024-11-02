@@ -5,7 +5,7 @@
   "main": "./src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start:dev": "ts-node src/index.ts --watch"
+    "start:dev": "ts-node src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +13,7 @@
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.8.6",
+    "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   },

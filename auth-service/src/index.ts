@@ -3,7 +3,7 @@ import authRoutes from './routes/authRoutes';
 import { API_PREFIX } from './config';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT;
 
 
 app.use(`/${API_PREFIX}`, authRoutes);

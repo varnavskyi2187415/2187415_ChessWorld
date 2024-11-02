@@ -2,10 +2,11 @@ version: "3.2"
 services:
   room-service:
     build:
-      dockerfile: ./docker/room-service/Dockerfile
+      context: ${ROOM_DIRECTORY}
+      dockerfile: ../docker/room-service/Dockerfile
     environment:
-      - PORT=3000
-      - NODE_ENV=development
+      - PORT=${ROOM_SERVICE_PORT}
+      - NODE_ENV=${NODE_ENV}
     volumes:
       - ./room-service:/usr/src/app/
     networks:
@@ -13,10 +14,15 @@ services:
 
   auth-service:
     build:
-      dockerfile: docker/auth-service/Dockerfile
+      context: ${AUTH_DIRECTORY}
+      dockerfile: ../docker/auth-service/Dockerfile
+    command: npx nodemon src/index.ts
     container_name: 'auth-service'
+    environment:
+      - PORT=${AUTH_SERVICE_PORT}
     volumes:
-      - ./auth-service/config:/usr/src/app/config
+      - ./auth-service:/usr/src/app/
+      - /usr/src/app/node_modules
     networks:
       - app-network
 

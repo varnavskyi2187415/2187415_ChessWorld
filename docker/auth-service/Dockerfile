@@ -2,12 +2,9 @@ FROM node:21.5.0
 
 WORKDIR /usr/src/app
 
-COPY ./auth-service/package*.json .
+COPY ./package.json .
+COPY ./package-lock.json .
+
+RUN npm install -g nodemon
 
 RUN npm install
-
-COPY ./auth-service .
-
-EXPOSE 3001
-
-CMD ["npx", "nodemon", "src/index.ts"]
