@@ -64,11 +64,11 @@ services:
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ${FRONTEND_DIRECTORY}:/var/www/project/frontend
-      - ./docker/certs/local/cert.crt:/etc/nginx/ssl/cert.crt
-      - ./docker/certs/local/cert.key:/etc/nginx/ssl/cert.key
+      - ./docker/certs/local/:/etc/nginx/ssl/
     ports:
       - "80:80"
       - "443:443"
+      - "8443:8443"
     depends_on:
       - room-service
       - auth-service
@@ -78,3 +78,6 @@ services:
 
 networks:
   project:
+
+volumes:
+  mysql:
