@@ -1,5 +1,19 @@
 version: "3.2"
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+    command: npm start
+    stdin_open: true
+    tty: true
+    container_name: ${PROJECT_NAME}-frontend
+    volumes:
+      - ${FRONTEND_DIRECTORY}:/var/www/project/frontend
+      - /var/www/project/frontend/node_modules
+    networks:
+      - ${PROJECT_NAME}
+
   room-service:
     build:
       context: ${ROOM_DIRECTORY}
@@ -7,24 +21,25 @@ services:
     environment:
       - PORT=${ROOM_SERVICE_PORT}
       - NODE_ENV=${NODE_ENV}
+    container_name: ${PROJECT_NAME}-room-service
     volumes:
       - ./room-service:/usr/src/app/
     networks:
-      - app-network
+      - ${PROJECT_NAME}
 
   auth-service:
     build:
       context: ${AUTH_DIRECTORY}
       dockerfile: ../docker/auth-service/Dockerfile
     command: npx nodemon src/index.ts
-    container_name: 'auth-service'
+    container_name: ${PROJECT_NAME}-auth-service
     environment:
       - PORT=${AUTH_SERVICE_PORT}
     volumes:
       - ./auth-service:/usr/src/app/
       - /usr/src/app/node_modules
     networks:
-      - app-network
+      - ${PROJECT_NAME}
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -33,21 +48,25 @@ services:
       - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
       - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
     networks:
-      - app-network
+      - ${PROJECT_NAME}
 
   nginx:
     image: nginx:latest
     container_name: nginx
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ${FRONTEND_DIRECTORY}:/var/www/project/frontend
+      - ./docker/certs/local/cert.crt:/etc/nginx/ssl/cert.crt
+      - ./docker/certs/local/cert.key:/etc/nginx/ssl/cert.key
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - room-service
       - auth-service
+      - frontend
     networks:
-      - app-network
+      - ${PROJECT_NAME}
 
 networks:
-  app-network:
-    driver: bridge
+  project:
