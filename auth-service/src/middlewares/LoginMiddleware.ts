@@ -1,5 +1,5 @@
 import {User} from "../entity/User";
-import readCredentials from "../utils/getUserByEmail";
+import readCredentials from "../utils/readCredentials";
 import bcrypt from "bcrypt";
 
 export default  module.exports = async (req: any, res: any, next: any) => {

@@ -1,10 +1,8 @@
 import {Request, Response, Router} from 'express';
 import {User} from "../entity/User";
-import bcrypt from 'bcrypt';
-import readCredentials from "../utils/getUserByEmail";
+import readCredentials from "../utils/readCredentials";
 import LoginMiddleware from "../middlewares/LoginMiddleware";
 import {Container} from "typedi";
-import {UserService} from "../services/UserService";
 import {JWTAuthService} from "../services/JWTAuthService";
 
 const AuthRouter = Router();
