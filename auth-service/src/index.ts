@@ -1,16 +1,16 @@
-import express from 'express';
-import authRoutes from './routes/authRoutes';
-import { API_PREFIX } from './config';
 import "reflect-metadata";
-
-import { AppDataSource } from "./data-source";
+import express from 'express';
+import AuthRouter from './routes/AuthRoutes';
+import {API_PREFIX} from './config';
+import {AppDataSource} from "./data-source";
+import UserRouter from "./routes/UserRouter";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.use(`/${API_PREFIX}`, authRoutes);
+app.use(`/${API_PREFIX}`, AuthRouter, UserRouter);
 
 async function startServer() {
     try {

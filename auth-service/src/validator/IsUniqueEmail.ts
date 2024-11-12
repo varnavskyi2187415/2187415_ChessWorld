@@ -1,29 +1,17 @@
-import { registerDecorator, ValidationOptions, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
-import { User } from '../entity/User';
-import { AppDataSource } from '../data-source';
+import { ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments } from "class-validator";
+import { AppDataSource } from "../data-source";
+import { User } from "../entity/User";
 
 @ValidatorConstraint({ async: true })
-export class IsEmailAlreadyExistConstraint implements ValidatorConstraintInterface {
-    async validate(email: any) {
+export class IsUniqueEmail implements ValidatorConstraintInterface {
+    async validate(email: string, args: ValidationArguments) {
         const userRepository = AppDataSource.getRepository(User);
         // @ts-ignore
-        const user = await userRepository.findOneBy({ _email: email });
+        const user = await userRepository.findOne({ where: { _email: email } });
         return !user;
     }
 
-    defaultMessage() {
-        return 'Email $value is already in use';
+    defaultMessage(args: ValidationArguments) {
+        return `Email ${args.value} is already taken`;
     }
-}
-
-export function IsUniqueEmail(validationOptions?: ValidationOptions) {
-    return function (object: Object, propertyName: string) {
-        registerDecorator({
-            target: object.constructor,
-            propertyName: propertyName,
-            options: validationOptions,
-            constraints: [],
-            validator: IsEmailAlreadyExistConstraint,
-        });
-    };
 }
