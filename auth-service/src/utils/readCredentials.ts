@@ -5,7 +5,7 @@ async function readCredentials(email: string): Promise<User | null> {
     const userRepository = AppDataSource.manager.getRepository(User);
 
     // @ts-ignore
-    const user = await userRepository.findOneBy({_email: email});
+    const user = await userRepository.findOneBy({email: email});
 
     return user || null;
 }
