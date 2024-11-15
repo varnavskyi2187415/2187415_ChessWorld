@@ -8,8 +8,8 @@ import {Token} from "./Token";
 @Unique('isUnique', ['email'])
 export class User {
 
-    private ROLE_USER: string = 'ROLE_USER';
-    private ROLE_ADMIN: string = 'ROLE_ADMIN';
+    static readonly ROLE_USER: string = 'ROLE_USER';
+    static readonly ROLE_ADMIN: string = 'ROLE_ADMIN';
 
     @PrimaryGeneratedColumn('uuid')
     id!: number;
@@ -26,7 +26,6 @@ export class User {
     @Expose()
     email!: string;
 
-
     @Column("varchar", { length: 255 })
     @IsNotEmpty({ message: "Password should not be empty" })
     @Exclude()
@@ -36,11 +35,7 @@ export class User {
     @Exclude()
     roles!: string[];
 
-    @OneToMany(() => Token, (token) => token.user)
-    @Exclude()
-    tokens?: Token[];
-
     constructor() {
-        this.roles = [this.ROLE_USER];
+        this.roles = [User.ROLE_USER];
     }
 }
