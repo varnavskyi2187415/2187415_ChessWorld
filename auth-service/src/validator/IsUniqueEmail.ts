@@ -7,7 +7,7 @@ export class IsUniqueEmail implements ValidatorConstraintInterface {
     async validate(email: string, args: ValidationArguments) {
         const userRepository = AppDataSource.getRepository(User);
         // @ts-ignore
-        const user = await userRepository.findOne({ where: { _email: email } });
+        const user = await userRepository.findOne({ where: { email: email } });
         return !user;
     }
 

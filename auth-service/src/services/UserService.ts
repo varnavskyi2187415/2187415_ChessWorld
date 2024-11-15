@@ -15,6 +15,13 @@ export class UserService {
         return user;
     }
 
+    public async getUser(email: string): Promise<User> {
+        const userRepository = AppDataSource.manager.getRepository(User);
+
+        // @ts-ignore
+        return await userRepository.findOneBy({email});
+    }
+
     public async saveUser(user: User) {
         const salt = await bcrypt.genSalt();
         user.password = await bcrypt.hash(user.password, salt);
