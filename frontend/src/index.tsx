@@ -5,6 +5,8 @@ import { Provider } from 'react-redux';
 import App from './App';
 import store from 'behavior/store'; // Make sure the path to your store file is correct
 import 'bootstrap/dist/css/bootstrap.min.css'; // Import Bootstrap for styling
+import { setTokens } from 'behavior/auth/authSlice';
+import { getAuthTokensFromLocalStorage } from 'behavior/auth/tokenService';
 
 // Get the root DOM element
 const container = document.getElementById('root');
@@ -12,6 +14,9 @@ if (!container) {
   throw new Error("Couldn't find root element with id 'root'");
 }
 
+const { accessToken, refreshToken } = getAuthTokensFromLocalStorage();
+if (accessToken && refreshToken)
+  store.dispatch(setTokens({ accessToken, refreshToken }));
 
 // Create a root and render the App
 const root = createRoot(container);

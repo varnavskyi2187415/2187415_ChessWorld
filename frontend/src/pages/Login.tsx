@@ -5,12 +5,14 @@ import { useAppDispatch } from 'behavior/hooks';
 import { setLoading, setTokens } from 'behavior/auth/authSlice';
 import axios from 'axios';
 import { LoginApiRoute } from 'behavior/apiConstants';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { registerRoute } from 'routing/constants';
 import { toast } from 'react-toastify';
 
 const Login: React.FC = () => {
   const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const formik = useFormik({
     initialValues: {
@@ -27,10 +29,13 @@ const Login: React.FC = () => {
         const response = await axios.post(LoginApiRoute, values);
         const { accessToken, refreshToken } = response.data;
         dispatch(setTokens({ accessToken, refreshToken }));
-        toast.success('Login successful!', {position:"top-right"});
+        toast.success('Login successful!');
+        if (searchParams.has('from')) {
+          navigate(searchParams.get('from')!);
+        }
       } catch (error) {
         console.error('Login failed:', error);
-        toast.error('Login failed. Please try again.', {position:"top-right"});
+        toast.error('Login failed. Please try again.');
       } finally {
         dispatch(setLoading(false));
       }

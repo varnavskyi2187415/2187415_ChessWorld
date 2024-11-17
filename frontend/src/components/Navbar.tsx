@@ -4,6 +4,7 @@ import { useAppDispatch } from 'behavior/hooks';
 import { clearTokens } from 'behavior/auth/authSlice';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { gameRoute, homeRoute, loginRoute, registerRoute } from 'routing/constants';
 
 const Navbar: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -14,16 +15,19 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      <nav className="navbar navbar-expand-lg navbar-light bg-light">
+      <nav className="navbar navbar-expand navbar-light bg-light">
         <div className="container-fluid">
-          <Link className="navbar-brand" to="/home">ChessWorld</Link>
+          <Link className="navbar-brand" to={homeRoute}>ChessWorld</Link>
           <div className="collapse navbar-collapse">
             <ul className="navbar-nav me-auto">
               <li className="nav-item">
-                <Link className="nav-link" to="/login">Login</Link>
+                <Link className="nav-link" to={loginRoute}>Login</Link>
               </li>
               <li className="nav-item">
-                <Link className="nav-link" to="/register">Register</Link>
+                <Link className="nav-link" to={registerRoute}>Register</Link>
+              </li>
+              <li className="nav-item">
+                <Link className="nav-link" to={gameRoute}>Game</Link>
               </li>
               <li className="nav-item">
                 <button className="btn btn-outline-danger nav-link" onClick={handleLogout}>
