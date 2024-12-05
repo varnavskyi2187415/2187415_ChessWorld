@@ -7,12 +7,12 @@ export class AppController {
 
   @Get('/auth')
   getHello() {
-    return {msg:"Hello world!!!!!"};
+    console.log('HEllo!!!!');
+    return { msg: 'Hello world!!!!!' };
   }
 
   @Get('/hello')
   getApi() {
-    return {msg:"Hello Api!!!!!"};
+    return { msg: 'Hello Api!!!!!' };
   }
-
 }
