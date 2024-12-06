@@ -1,1 +1,1 @@
-export const API_PREFIX = 'auth';
+export const API_PREFIX = 'statistics';

@@ -16,4 +16,10 @@ UserRouter.post('/register', RegistryMiddleware, async (req: Request, res: Respo
     });
 });
 
+UserRouter.get('/test', async (req: Request, res: Response): Promise<void> => {
+    res.status(201).json({
+        message: 'Test is successfully created',
+    });
+});
+
 export default UserRouter;
