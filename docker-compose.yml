@@ -51,6 +51,8 @@ services:
     container_name: ${PROJECT_NAME}-statistics-service
     environment:
       - PORT=${STATISTICS_SERVICE_PORT}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
     volumes:
       - ./statistics-service:/usr/src/app/
       - /usr/src/app/node_modules

@@ -1,9 +1,8 @@
 export default module.exports = (req: any, res: any, next: any) => {
-  const token = req.headers['authorization'];
-  if (!token) {
+  const messageData = req.body;
+  if (!messageData) {
     return res.status(403).json({ message: 'Forbidden' });
   }
 
-  console.log('Token is valid');
   next();
 };
