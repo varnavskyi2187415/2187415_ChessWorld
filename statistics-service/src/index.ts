@@ -3,16 +3,13 @@ import { connectRabbitMQClient, subscribeToQueue } from './rabbitmq/rabbitmq.ser
 import { AppDataSource } from "./data-source";
 import RabbitMQMessageRouter from './routes/RabbitMQMessageRoutes';
 import { API_PREFIX } from './config';
+import {handleRabbitMQMessage} from "./rabbitmq/handlers/handle.rabbitmq.message";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(`/${API_PREFIX}`, RabbitMQMessageRouter);
-
-const handleRabbitMQMessage = (message: any) => {
-    console.log("Processed message from RabbitMQ:", message);
-};
 
 async function startServer() {
     try {

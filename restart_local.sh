@@ -1,5 +1,6 @@
 #/bin/sh
 
-docker stop $(docker ps -aq); docker system prune -f
+docker compose down
+docker compose up -d
 
 ./local_recreate.sh
