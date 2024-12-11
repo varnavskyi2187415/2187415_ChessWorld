@@ -1,41 +1,36 @@
-import { Entity, Column, PrimaryGeneratedColumn, Unique, OneToMany } from "typeorm";
-import { IsEmail, IsNotEmpty, Validate } from "class-validator";
-import { IsUniqueEmail } from "../validator/IsUniqueEmail";
-import { Expose, Exclude } from 'class-transformer';
-import {Token} from "./Token";
+import {Entity, Column, PrimaryGeneratedColumn, Unique, OneToMany, ManyToOne, JoinColumn} from "typeorm";
+import {Exclude} from "class-transformer";
+import {Game} from "./Game";
 
-@Entity('user')
-@Unique('isUnique', ['email'])
-export class User {
-
-    static readonly ROLE_USER: string = 'ROLE_USER';
-    static readonly ROLE_ADMIN: string = 'ROLE_ADMIN';
+@Entity('game_white_black')
+export class GameWhiteBlack {
 
     @PrimaryGeneratedColumn('uuid')
     id!: number;
 
-    @Column("varchar", { length: 255 })
-    @IsNotEmpty({ message: "Name should not be empty" })
-    @Expose()
-    name!: string;
+    @Column('uuid', { nullable: false })
+    user_white_id!: number;
 
-    @Column("varchar", { length: 255, unique: true })
-    @IsEmail()
-    @IsNotEmpty({ message: "Email should not be empty" })
-    @Validate(IsUniqueEmail, { message: "Email is already taken" })
-    @Expose()
-    email!: string;
-
-    @Column("varchar", { length: 255 })
-    @IsNotEmpty({ message: "Password should not be empty" })
-    @Exclude()
-    password!: string;
+    @Column('uuid', { nullable: false })
+    user_black_id!: number;
 
     @Column("json")
     @Exclude()
-    roles!: string[];
+    user_black_moves!: string[];
+
+    @Column("json")
+    @Exclude()
+    user_white_moves!: string[];
+
+    @Column('boolean', { nullable: true })
+    winner?: boolean;
+
+    @ManyToOne(() => Game, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'gameId' })
+    game!: Game;
 
     constructor() {
-        this.roles = [User.ROLE_USER];
+        this.user_black_moves = [];
+        this.user_white_moves = [];
     }
 }

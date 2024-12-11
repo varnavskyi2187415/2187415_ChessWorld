@@ -1,15 +1,17 @@
-import {Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn} from "typeorm";
-import { User } from "./User";
+import {Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Timestamp} from "typeorm";
+import { GameWhiteBlack } from "./GameWhiteBlack";
 
-@Entity('token')
-export class Token {
+@Entity('game')
+export class Game {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'userId' })
-    user!: User;
+    @Column('timestamp', { nullable: true })
+    beginning?: Timestamp;
 
-    @Column('text')
-    token: string = "";
+    @Column('timestamp', { nullable: true })
+    ending?: Timestamp;
+
+    @Column('integer', { nullable: true })
+    movesCount: number = 0;
 }
