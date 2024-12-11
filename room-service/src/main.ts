@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { LoggingMiddleware } from './logging.middleware';
-import { Transport } from '@nestjs/microservices';
+import { RabbitMQConnection } from './utils/rabbitmq.connection';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,18 +13,9 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`HTTP server is running on http://localhost:${port}`);
 
-  app.connectMicroservice({
-    transport: Transport.RMQ,
-    options: {
-      urls: [
-        `amqp://${process.env.RABBITMQ_USER}:${process.env.RABBITMQ_PASSWORD}@rabbitmq:5672/`,
-      ],
-      queue: 'room-queue',
-      queueOptions: {
-        durable: true,
-      },
-    },
-  });
+  const rabbitMQOptions =
+    RabbitMQConnection.createRabbitMQOptions('room-queue');
+  app.connectMicroservice(rabbitMQOptions);
 
   await app.startAllMicroservices();
   console.log('Microservice is listening for messages');
