@@ -1,15 +1,18 @@
 services:
   redis:
     image: redis:latest
+    container_name: ${PROJECT_NAME}-redis
     restart: always
     ports:
       - "6379:6379"
     volumes:
-      - ./data:/root/redis
+      - ./docker/redis/:/root/redis
     environment:
       REDIS_DATABASES: ${REDIS_DATABASES}
       REDIS_PORT_LOCAL: ${REDIS_PORT_LOCAL}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks:
+      - ${PROJECT_NAME}
 
   mysql:
     platform: linux/amd64

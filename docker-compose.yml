@@ -53,6 +53,10 @@ services:
       - PORT=${STATISTICS_SERVICE_PORT}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_USER=${RABBITMQ_USER}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT_LOCAL}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_DATABASES=${REDIS_DATABASES}
     volumes:
       - ./statistics-service:/usr/src/app/
       - /usr/src/app/node_modules
