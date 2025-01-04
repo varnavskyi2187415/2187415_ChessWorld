@@ -22,6 +22,10 @@ services:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - NODE_ENV=${NODE_ENV}
       - RABBITMQ_USER=${RABBITMQ_USER}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT_LOCAL}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_DATABASES=${REDIS_DATABASES}
 
     container_name: ${PROJECT_NAME}-room-service
     volumes:

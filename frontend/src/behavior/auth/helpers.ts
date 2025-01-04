@@ -1,37 +1,28 @@
-// src/features/auth/authUtils.ts
-import { jwtDecode } from 'jwt-decode';
-import axios from 'axios';
-import store from 'behavior/store';
-import { setTokens, clearTokens } from 'behavior/auth/authSlice';
-import { getAuthTokensFromLocalStorage } from './tokenService';
-import { RefreshAccessApiRoute } from 'behavior/apiConstants';
+import jwt, {jwtDecode, JwtPayload} from 'jwt-decode';
+import {getAccessTokenFromLocalStorage } from './tokenService';
 
-interface JwtPayload {
-  exp: number;
+interface UserJwtPayload extends JwtPayload {
+  id: string;
+  email: string;
 }
 
-/// TODO: check time diff determining logic 
-export const isTokenExpired = (token: string): boolean => {
-  const decoded: JwtPayload = jwtDecode(token);
-  return decoded.exp * 1000 < Date.now();
-};
+function GetPayload() {
+  const accessToken = getAccessTokenFromLocalStorage();
+  if (!accessToken) return null;
+  return jwtDecode(accessToken) as UserJwtPayload;
+}
 
-export const setupAxiosInterceptors = () => {
-  axios.interceptors.request.use(async (config) => {
-    const { accessToken: savedAccessToken, refreshToken: savedRefreshToken } = getAuthTokensFromLocalStorage();
-    if (savedRefreshToken && isTokenExpired(savedAccessToken || '')) {
-      try {
-        const response = await axios.get(RefreshAccessApiRoute, {
-          headers: { Authorization: savedRefreshToken },
-        });
-        const { accessToken, refreshToken } = response.data;
-        store.dispatch(setTokens({ accessToken, refreshToken }));
-        config.headers.Authorization = `Bearer ${accessToken}`;
-      } catch (error) {
-        store.dispatch(clearTokens());
-        console.error('Token refresh failed');
-      }
-    }
-    return config;
-  });
-};
+export function GetUserId() {
+  const payload = GetPayload();
+  if (!payload) return null;
+  return payload["id"];
+}
+
+export function GetUserEmail() {
+  const payload = GetPayload();
+  if (!payload) return null;
+  return payload["email"];
+} 
+
+
+

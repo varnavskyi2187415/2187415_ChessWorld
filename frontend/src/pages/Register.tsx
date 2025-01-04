@@ -2,7 +2,7 @@ import React from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useAppDispatch } from 'behavior/hooks';
-import { setLoading } from 'behavior/auth/authSlice';
+import {setLoading, setTokens} from 'behavior/auth/authSlice';
 import axios from 'axios';
 import { RegisterApiRoute } from 'behavior/apiConstants';
 import { Link } from 'react-router-dom';
@@ -26,6 +26,8 @@ const Register: React.FC = () => {
       dispatch(setLoading(true));
       try {
         const response = await axios.post(RegisterApiRoute, values);
+        const { accessToken, refreshToken } = response.data;
+        dispatch(setTokens({ accessToken, refreshToken }));
         alert(response.data.message);
       } catch (error) {
         console.error('Registration failed:', error);

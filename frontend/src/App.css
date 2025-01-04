@@ -16,11 +16,12 @@
 }
 
 .board {
-  height: 80%; /* Set the height to 80% of the parent container */
-  width: 80%; /* Set the width to 80% of the parent container */
+  height: 100%; /* Set the height to 80% of the parent container */
+  width: 100%; /* Set the width to 80% of the parent container */
   display: flex;
+  flex-direction: row;
   align-items: center; /* Center the chessboard vertically */
-  justify-content: center; /* Center the chessboard horizontally */
+  justify-content: space-between; /* Center the chessboard horizontally */
 
 /* max-width: 50%; */
   /* max-height: 60%; */
