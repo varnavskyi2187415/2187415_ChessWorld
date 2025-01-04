@@ -1,10 +1,7 @@
-import React, {useState, useEffect, forwardRef, useImperativeHandle} from "react";
-import {useTimer} from "react-use-precision-timer";
+import React, {useState, useEffect} from "react";
 import {Card} from "@mui/material";
 import {Chess} from "chess.js";
-import {Room} from "../../behavior/room/types";
 import {useAppSelector} from "../../behavior/hooks";
-import {socket} from "../../lib/socket";
 
 interface ChessClockProps {
   myColor: 'w' | 'b',
@@ -37,12 +34,6 @@ const ChessClock = ({myColor, game}: ChessClockProps) => {
       clearInterval(timer);
     }
   }, [game.turn(), currentRoom?.gameStatus]);
-
-  // useEffect(() => {
-  //   setInterval(() => {
-  //     socket.emit('room:getTime', {roomId: currentRoom?.id});
-  //   }, 10000)
-  // }, [currentRoom]);
 
   useEffect(() => {
     console.log('currentTime BOARD', currentTime);

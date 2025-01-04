@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AppGateway } from './room.gateway';
+import { RoomGateway } from './room.gateway';
 import { RoomController } from './room.controller';
 import { RoomService } from './room.service';
 import { RabbitMQConnection } from '../utils/rabbitmq.connection';
@@ -12,9 +12,10 @@ import {StockfishService} from "./stockfish.service";
   imports: [
     RabbitMQConnection.forRoot('statistics-queue', 'ROOM_SERVICE'),
     RabbitMQConnection.forRoot('find-game-queue', 'USER_SERVICE'),
+    RabbitMQConnection.forRoot('stop-find-game-queue', 'USER_SERVICE'),
     TypeOrmModule.forFeature([Room, Attendee]),
   ],
-  providers: [AppGateway, RoomService, StockfishService],
+  providers: [RoomGateway, RoomService, StockfishService],
   controllers: [RoomController],
 })
 export class RoomModule {}

@@ -12,8 +12,8 @@ import {
   TextField
 } from "@mui/material";
 import {setInFindGame} from 'behavior/room/roomSlice';
-import { socket } from "lib/socket";
-import { useAppDispatch, useAppSelector } from "behavior/hooks";
+import {socket} from "lib/socket";
+import {useAppDispatch, useAppSelector} from "behavior/hooks";
 import BasicColumn from "components/basic/BasicColumn";
 import BasicRow from "components/basic/BasicRow";
 import TimeControlSelect from "./TimeControlSelect";
@@ -61,13 +61,18 @@ const FindGame = () => {
     dispatch(setInFindGame(true));
     console.log("socket.connect(); in FINDGAME")
   }
+  
+  const handleStopFind = () => {
+    dispatch(setInFindGame(false));
+    socket.emit('user:stopGameFind');
+  }
 
   useEffect(() => {
     console.log('isSocketReady, isInFindGame', isSocketReady, isInFindGame);
     if (!isSocketReady || !isInFindGame) return;
-    console.log('socketReady = true in FIND GAME')
+    console.log(`gametype ${gameType}`)
     if (gameType === "player") {
-      socket.emit('user:startGame');
+      socket.emit('user:startGame', {timeControl: timeControl});
       console.log(`startGame emited`);
       return;
     }
@@ -121,7 +126,9 @@ const FindGame = () => {
               </BasicColumn>
           </>
           }
-          <Button variant="contained" onClick={handleFindGame} className="m-1">Find game</Button>
+          
+          <Button variant="contained" onClick={handleFindGame} className="m-1" disabled={isInFindGame}>Find game</Button>
+          {isInFindGame && <Button variant={'contained'} onClick={handleStopFind} className={'m-1'}>Stop find</Button>}
         </BasicColumn>
 
       </Card>

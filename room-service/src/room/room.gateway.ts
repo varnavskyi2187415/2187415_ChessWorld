@@ -18,8 +18,8 @@ import {StockfishService} from './stockfish.service';
 import {EmptyError} from "rxjs";
 import {Room} from "./entities/Room";
 import {ClientProxy, EventPattern, Payload} from "@nestjs/microservices";
-import {RoomDto} from "./room.dto";
-import {UserDto} from "../user/user.dto";
+import {FindGameDto} from "./dtos/findGame.dto";
+import { StopFindGameDto } from './dtos/stopFindGame.dto';
 
 interface UserData {
   userId: string;
@@ -27,7 +27,7 @@ interface UserData {
 }
 
 @WebSocketGateway(4321, {namespace: '/socket.io'})
-export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -35,6 +35,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   }
 
+  // @EventPattern('room-queue')
+  // handleMessagePlace(@Payload() data: RoomDto) {
+  //   console.log('Received:', data);
+  // }
   handleConnection(client: Socket): void {
     console.log(`Client connected: ${client.id}`);
     //this.server.emit('room', `${client.id} joined!`);
@@ -71,10 +75,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(client.id).emit('roomCreated', room.id);
   }
 
-  @EventPattern('room-queue')
-  handleMessagePlace(@Payload() data: RoomDto) {
-    console.log('Received:' + data.name);
-  }
 
   @SubscribeMessage(Events.deleteRoom)
   async handleDeleteRoom(@ConnectedSocket() client: Socket, @MessageBody() payload: {
@@ -115,9 +115,15 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(Events.startGame)
-  async handleStartGame(@ConnectedSocket() client: Socket): Promise<void> {
+  async handleStartGame(@ConnectedSocket() client: Socket, @Payload() payload: { timeControl: string }): Promise<void> {
     console.log(`[${client.id}] starts finding game`);
-    this.rabbitmqClient.emit('find-game-queue', new UserDto(client.data.userId, client.data.userEmail));
+    this.rabbitmqClient.emit('find-game-queue', new FindGameDto(client.data.userEmail, client.data.userId, payload.timeControl));
+  }
+
+  @SubscribeMessage(Events.stopGameFind)
+  async handleStopFindGame(@ConnectedSocket() client: Socket): Promise<void> {
+    console.log(`[${client.id}] stops finding game`);
+    this.rabbitmqClient.emit('stop-find-game-queue', new StopFindGameDto(client.data.userEmail, client.data.userId));
   }
 
   @SubscribeMessage(Events.joinRoom)
@@ -163,11 +169,13 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(
       `[${client.id}] makes move in ${payload.roomId}: ${(payload.move as Move).san}`,
     );
-    /// TODO: start timer till end of game
-    const room = await this.roomService.handleMove(payload.roomId, payload.move, (side: string) => this.handleTimeRunOut(client, {
-      ...payload,
-      side: side
-    }));
+    const room = await this.roomService.handleMove(
+      payload.roomId,
+      payload.move,
+      (side: string) => this.handleTimeRunOut(client, {
+        ...payload,
+        side: side
+      }));
     if (room.gameStatus !== 'The game is still ongoing.' && room.gameStatus !== '') {
       this.server.to(room.id).emit('roomData', room);
       await this.handleGetTime(client, payload);
@@ -187,29 +195,48 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }): Promise<void> {
     console.log(`[${client.id}] wants time for ${payload.roomId}`);
     const room = await this.roomService.getRoomById(payload.roomId);
-    !room && console.log('room', room);
     const time = this.roomService.getTimeForGame(room.gamePGN);
     this.server.to(room.id).emit('currentTime', time);
   }
 
-  @SubscribeMessage(Events.pauseRoom)
-  @UseGuards(IsPlayerGuard)
-  async handlePauseGame(@ConnectedSocket() client: Socket, @MessageBody() payload: {
-    roomId: string,
-  }) {
-    console.log(`[${client.id}] wants pause ${payload.roomId}`);
-    const room = await this.roomService.pauseRoom(payload.roomId);
-    this.server.to(payload.roomId).emit('roomData', room);
-  }
-
-  /// TODO: handle draw offer
   @SubscribeMessage(Events.handleOfferDraw)
   @UseGuards(IsPlayerGuard)
-  handleOfferDraw(@ConnectedSocket() client: Socket, @MessageBody() payload: {
+  async handleOfferDraw(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string,
-    move: Move | string,
   }) {
-    this.server.fetchSockets()
+    console.log(`[${client.id}] is proposing draw in ${payload.roomId} room`);
+    const opponentsSocketId = await this.roomService.getSocketIdOfOpponent(client.data.userId, payload.roomId);
+    this.server.to(opponentsSocketId).emit('drawPropose');
+  }
+  
+  @SubscribeMessage(Events.acceptDraw)
+  @UseGuards(IsPlayerGuard)
+  async handleDrawAccepted(@ConnectedSocket() client: Socket, @MessageBody() payload: {
+    roomId: string,
+  }) {
+    console.log(`[${client.id}] accepted draw in ${payload.roomId} room`);
+    const room = await this.roomService.draw(payload.roomId);
+    this.server.to(room.id).emit('roomData', room);
+  }
+
+  @SubscribeMessage(Events.denyDraw)
+  @UseGuards(IsPlayerGuard)
+  async handleDrawDenied(@ConnectedSocket() client: Socket, @MessageBody() payload: {
+    roomId: string,
+  }) {
+    console.log(`[${client.id}] denied draw in ${payload.roomId} room.`);
+    const opponentsSocketId = await this.roomService.getSocketIdOfOpponent(client.data.userId, payload.roomId);
+    this.server.to(opponentsSocketId).emit('drawDenied');
+  }
+
+  @SubscribeMessage(Events.surrender)
+  @UseGuards(IsPlayerGuard)
+  async handleSurrender(@ConnectedSocket() client: Socket, @MessageBody() payload: {
+    roomId: string,
+  }) {
+    console.log(`[${client.id}] surrender in ${payload.roomId} room.`);
+    const room = await this.roomService.surrender(client.data.userId, payload.roomId);
+    this.server.to(room.id).emit('roomData', room);
   }
 
   @SubscribeMessage(Events.timeRunOut)
@@ -223,9 +250,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(room.id).emit('roomData', room);
   }
 
-  /// TODO: handle resignation
   /// TODO: clean code
-
 
   @SubscribeMessage('error')
   handleError(client: Socket, error: string): void {

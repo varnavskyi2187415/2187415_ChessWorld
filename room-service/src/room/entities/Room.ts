@@ -23,20 +23,11 @@ export class Room {
   @Column('longtext')
   gamePGN!: string;
   
-  @Column()
-  whiteTime: number;
-
-  @Column()
-  blackTime: number;
-
-  @CreateDateColumn()
-  creationDate: Date;
-  
   @Column('nvarchar')
   gameStatus: string;
   
   @Column()
-  stockfishDepth?: number | null = -1;
+  stockfishDepth?: number = -1;
 
   @OneToMany(() => Attendee, (attendee) => attendee.room, {onDelete: "CASCADE"})
   attendees: Attendee[];

@@ -4,7 +4,6 @@ export interface Room {
   gamePGN: string
   gameStatus: string
   attendees: Attendee[]
-  creationDate: Date
   whiteUserId?: string,
   blackUserId?: string,
   whiteTime: number,

@@ -6,9 +6,12 @@ export enum Events {
   joinRoom = 'room:joinRoom',
   deleteRoom = 'room:delete',
   handleOfferDraw = 'room:handleOfferDraw',
+  acceptDraw = 'room:acceptDraw',
+  denyDraw = 'room:denyDraw',
   leaveRoom = 'room:leaveRoom',
   getTime = 'room:getTime',
-  pauseRoom = 'room:pauseRoom',
   timeRunOut = 'room:timeRunOut',
-  startGame = 'user:startGame'
+  startGame = 'user:startGame',
+  stopGameFind = 'user:stopGameFind',
+  surrender = 'room:surrender',
 }

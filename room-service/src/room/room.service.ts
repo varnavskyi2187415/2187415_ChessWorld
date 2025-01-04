@@ -1,27 +1,25 @@
 import {Inject, Injectable, NotImplementedException} from '@nestjs/common';
-import {RoomDto} from './room.dto';
-import {ClientProxy} from '@nestjs/microservices';
 import {InjectRepository} from "@nestjs/typeorm";
 import {Room} from "./entities/Room";
 import {Repository} from "typeorm";
 import {Attendee} from "./entities/Attendee";
 import {Chess, Move} from "chess.js";
 import {StockfishService} from "./stockfish.service";
+import {ClientProxy} from "@nestjs/microservices";
+import {RoomDto} from "./dtos/room.dto";
 
 @Injectable()
 export class RoomService {
   constructor(
-    //@Inject('ROOM_SERVICE') private rabbitmqClient: ClientProxy,
+    @Inject('ROOM_SERVICE') private rabbitmqClient: ClientProxy,
     @InjectRepository(Room) private roomRepo: Repository<Room>,
     @InjectRepository(Attendee) private attendeesRepo: Repository<Attendee>,
     @Inject() private readonly chessService: StockfishService,
   ) {
   }
 
-  private timers: Map<string, NodeJS.Timeout> = new Map(); // Зберігання таймерів для кожної гри
-  private remainingTimes: Map<string, { player1: number; player2: number }> = new Map();
-
-
+  private timers: Map<string, NodeJS.Timeout> = new Map();
+  
   getPlayersForBotGame(player: Attendee, stockfish: Attendee, selectedSide: string): {
     whitePlayer: Attendee,
     blackPlayer: Attendee
@@ -93,32 +91,33 @@ export class RoomService {
 
     if (!game.isGameOver()) return 'The game is still ongoing.';
 
-    if (game.isStalemate()) return 'Draw: stalemate.';
+    if (game.isStalemate()) return 'Draw. stalemate.';
 
-    if (game.isInsufficientMaterial()) return 'Draw: insufficient material.';
+    if (game.isInsufficientMaterial()) return 'Draw. insufficient material.';
 
-    if (game.isThreefoldRepetition()) return 'Draw: threefold repetition.';
+    if (game.isThreefoldRepetition()) return 'Draw. threefold repetition.';
 
     if (game.isDraw()) return 'Draw.';
 
     if (game.isCheckmate()) return `Checkmate. ${game.turn() === "w" ? "Black" : "White"} wins.`;
-    
+
     if (game.header()['Result'] === '1-0')
       return 'White wins.'
-    
+
     if (game.header()['Result'] === '0-1')
       return 'Black wins.'
 
     if (game.header()['Result'] === '1/2-1/2')
       return 'Draw. By agreement.'
-    
+
     throw new NotImplementedException();
   }
 
-  // placeRoom(roomDto: RoomDto) {
-  //   this.rabbitmqClient.emit('statistics-queue', roomDto);
-  //   return {message: 'Service has placed statistics for user!'};
-  // }
+  placeRoomInStatistic(room: Room) {
+    const roomDto = new RoomDto(room.id, room.title, room.whiteUserId, room.blackUserId, room.gamePGN, room.gameStatus, room.stockfishDepth);
+    this.rabbitmqClient.emit('statistics-queue', roomDto);
+    return {message: 'Service has placed statistics for user!'};
+  }
 
   async createRoomWithBot(userId: string, userEmail: string, selectedSide: string, botDepth: number, timeControl: string): Promise<Room> {
     const player = new Attendee();
@@ -140,9 +139,6 @@ export class RoomService {
     room.title = `Game with stockfish of ${userEmail}`;
     room.whiteUserId = whitePlayer.userId;
     room.blackUserId = blackPlayer.userId;
-    room.whiteTime = this.getStartTime(timeControl);
-    room.blackTime = this.getStartTime(timeControl);
-    room.creationDate = new Date();
     room.gamePGN = game.pgn();
     room.gameStatus = this.getGameStatus(game);
     room.attendees = [stockfish];
@@ -173,15 +169,42 @@ export class RoomService {
     game.header('Date', (new Date()).toUTCString());
 
     room.title = `Game of ${userEmail}`;
-    room.creationDate = new Date();
     room.gamePGN = game.pgn();
-    room.whiteTime = this.getStartTime(timeControl);
-    room.blackTime = this.getStartTime(timeControl);
     room.gameStatus = this.getGameStatus(game);
     room.attendees = [player];
     await this.roomRepo.save(room);
     player.room = room;
     await this.attendeesRepo.save(player);
+    return room;
+  }
+
+  async createRoomForUsers(whiteId: string, blackId: string, timeControl: string) {
+    const white = new Attendee();
+    white.userId = whiteId;
+    white.isPlayer = true;
+
+    const black = new Attendee();
+    black.userId = blackId;
+    black.isPlayer = true;
+
+    const game = new Chess();
+    game.header('TimeControl', timeControl);
+    game.header('White', white.userId);
+    game.header('Black', black.userId);
+    game.header('Date', (new Date()).toUTCString());
+
+    const room = new Room();
+    room.title = `Game of ${whiteId} vs ${blackId}`
+    room.whiteUserId = whiteId;
+    room.blackUserId = blackId;
+    room.gamePGN = game.pgn();
+    room.gameStatus = this.getGameStatus(game);
+    room.attendees = [white, black];
+    await this.roomRepo.save(room);
+    white.room = room;
+    black.room = room;
+    await this.attendeesRepo.save(white);
+    await this.attendeesRepo.save(black);
     return room;
   }
 
@@ -329,7 +352,6 @@ export class RoomService {
       const times = this.getTimeForGame(game.pgn());
       this.timers.delete(roomId);
       const timer = setTimeout(async () => {
-        console.log(`${game.turn()} lose on time`);
         await this.sideLoseOnTime(roomId, game.turn());
         handleTimeRunOut(game.turn());
       }, (game.turn() === 'w' ? times.whiteTime : times.blackTime) * 1000);
@@ -354,15 +376,14 @@ export class RoomService {
     let index = 0;
     while (true) {
       if (index === timestamps.length - 1) {
-          console.log('game.isGameOver()', game.isGameOver(), game.pgn());
-        if (game.isGameOver() || game.header()['Result'] === '0-1' || game.header()['Result'] === '1-0' || game.header()['Result'] === '1/2-1/2'){
+        if (game.isGameOver() || game.header()['Result'] === '0-1' || game.header()['Result'] === '1-0' || game.header()['Result'] === '1/2-1/2') {
           if (game.header()['Result'] === '1-0' && game.header()['Termination'] === 'time forfeit')
             blackTime = 0;
           else if (game.header()['Result'] === '0-1' && game.header()['Termination'] === 'time forfeit')
             whiteTime = 0;
           break;
         }
-        
+
         const timeBetweenMoves = (new Date().getTime() - firstStamp) / 1000 - timestamps[index];
         if (index % 2 != 0) {
           whiteTime -= timeBetweenMoves;
@@ -371,8 +392,8 @@ export class RoomService {
         }
         break;
       }
-      
-      
+
+
       const timeBetweenMoves = timestamps[index + 1] - timestamps[index];
       if (index % 2 != 0) {
         whiteTime -= timeBetweenMoves;
@@ -392,19 +413,20 @@ export class RoomService {
     const timeControl = game.header()['TimeControl'];
     const startTime = this.getStartTime(timeControl) * 60;
     const increment = this.getIncrement(timeControl);
-    console.log('s i', startTime, increment);
     return this.getActualTime(game, startTime, increment);
   }
 
-  async sideLoseOnTime(roomId: string, side: string){
+  async sideLoseOnTime(roomId: string, side: string) {
     const room = await this.getRoomById(roomId);
     const game = new Chess();
     game.loadPgn(room.gamePGN);
     game.header('Termination', 'time forfeit');
     if (!game.header()['Result'])
-      room.gamePGN = `${game.pgn()} ${side === 'w' ? '1-0' : '0-1'}`
+      game.header('Result', side === 'w' ? '1-0' : '0-1');
+    room.gamePGN = game.pgn();
     room.gameStatus = `Lost on time. ${game.turn() === "w" ? "Black" : "White"} wins.`;
     await this.roomRepo.save(room);
+    this.placeRoomInStatistic(room);
     return room;
   }
 
@@ -419,5 +441,43 @@ export class RoomService {
 
   async clearAllAttendees(socketId: string) {
     return await this.attendeesRepo.delete({socketId: socketId});
+  }
+
+  async getSocketIdOfOpponent(userId: string, roomId: string) {
+    const room = await this.getRoomById(roomId);
+    console.log('ROOOOM', room)
+    const opponentId = room.whiteUserId === userId ? room.blackUserId : room.whiteUserId;
+    console.log('opponentId', opponentId);
+    console.log('playerId', userId);
+    return room.attendees.filter(a => a.userId === opponentId)[0]?.socketId;
+  }
+
+  async draw(roomId: string) {
+    const room = await this.getRoomById(roomId);
+    const game = new Chess();
+    game.loadPgn(room.gamePGN);
+    game.header('Termination', 'draw agreement');
+    if (!game.header()['Result'])
+      room.gamePGN = `${game.pgn()} 1/2-1/2`
+    room.gameStatus = `Draw. Agreement.`;
+    await this.roomRepo.save(room);
+    this.placeRoomInStatistic(room);
+    return room;
+  }
+
+  async surrender(userId: string, roomId: string) {
+    const room = await this.getRoomById(roomId);
+    const game = new Chess();
+    game.loadPgn(room.gamePGN);
+    game.header('Termination', 'surrender');
+    if (!game.header()['Result']) {
+      const result = userId === room.whiteUserId ? '0-1' : '1-0';
+      game.header('Result', result);
+    }
+    room.gamePGN = game.pgn();
+    room.gameStatus = `Surrender. ${userId === room.whiteUserId ? 'Black' : 'White'} wins.`;
+    await this.roomRepo.save(room);
+    this.placeRoomInStatistic(room);
+    return room;
   }
 }
