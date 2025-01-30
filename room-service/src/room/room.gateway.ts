@@ -11,7 +11,7 @@ import {Server, Socket} from 'socket.io';
 import {RoomService} from "./room.service";
 import {Events} from "./room.emitTypes";
 import {Inject, UseGuards} from "@nestjs/common";
-import {IsPlayerGuard} from "./guards/IsPlayerGuard";
+import {IsPlayerGuardGateway} from "./guards/IsPlayerGuardGateway";
 import {Attendee} from "./entities/Attendee";
 import {Chess, Move} from "chess.js";
 import {StockfishService} from './stockfish.service';
@@ -19,7 +19,8 @@ import {EmptyError} from "rxjs";
 import {Room} from "./entities/Room";
 import {ClientProxy, EventPattern, Payload} from "@nestjs/microservices";
 import {FindGameDto} from "./dtos/findGame.dto";
-import { StopFindGameDto } from './dtos/stopFindGame.dto';
+import {StopFindGameDto} from './dtos/stopFindGame.dto';
+import {ConnectionIsNotSetError} from "typeorm";
 
 interface UserData {
   userId: string;
@@ -35,13 +36,8 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   }
 
-  // @EventPattern('room-queue')
-  // handleMessagePlace(@Payload() data: RoomDto) {
-  //   console.log('Received:', data);
-  // }
   handleConnection(client: Socket): void {
     console.log(`Client connected: ${client.id}`);
-    //this.server.emit('room', `${client.id} joined!`);
   }
 
   async handleDisconnect(@ConnectedSocket() client: Socket): Promise<void> {
@@ -55,13 +51,6 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.data.userId = userData.userId;
     client.data.userEmail = userData.userEmail;
     this.server.to(client.id).emit('userDataSet');
-  }
-
-  @SubscribeMessage('customName')
-  handleMessage(client: Socket, message: string): void {
-    console.log(`[${client.id}] sent message: ${message}`);
-    console.log(`userId: ${client}`);
-    this.server.emit('room', `[${client.id}] -> ${message}`);
   }
 
   @SubscribeMessage(Events.createRoom)
@@ -86,9 +75,8 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleBotGame(room: Room, handleTimeRunOut: (side: string) => void) {
-    const isBotGame: "w" | "b" | null = this.roomService.isBotGame(room.gamePGN);
-
-    if (isBotGame === 'w' || isBotGame === 'b') {
+    const botSide: "w" | "b" | null = this.roomService.getBotSide(room.gamePGN);
+    if (botSide === 'w' || botSide === 'b') {
       // handle stockfish move
       const game = new Chess();
       game.loadPgn(room.gamePGN);
@@ -107,6 +95,12 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`[${client.id}] want to start game with stockfish on depth ${payload.botDepth}`);
     const {userId, userEmail} = client.data;
     const room = await this.roomService.createRoomWithBot(userId, userEmail, payload.selectedSide, payload.botDepth, payload.timeControl);
+    
+    if (room.whiteUserId !== this.roomService.tempGetUUIDForStockfish()) {
+      this.server.to(client.id).emit('roomCreated', room.id);
+      return;
+    }
+    
     const updatedRoom = await this.handleBotGame(room, (side: string) => this.handleTimeRunOut(client, {
       roomId: room.id,
       side: side
@@ -141,6 +135,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.to(oldSocketId).socketsLeave(payload.roomId);
         this.server.to(oldSocketId).emit('joinedOnOtherDevice');
       }
+      
       this.server.to(client.id).socketsJoin(payload.roomId);
       this.server.to(payload.roomId).emit('roomData', room);
       await this.handleGetTime(client, payload);
@@ -161,7 +156,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(Events.handleMove)
-  @UseGuards(IsPlayerGuard)
+  @UseGuards(IsPlayerGuardGateway)
   async handleMove(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string,
     move: Move | string,
@@ -200,7 +195,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(Events.handleOfferDraw)
-  @UseGuards(IsPlayerGuard)
+  @UseGuards(IsPlayerGuardGateway)
   async handleOfferDraw(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string,
   }) {
@@ -208,9 +203,9 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const opponentsSocketId = await this.roomService.getSocketIdOfOpponent(client.data.userId, payload.roomId);
     this.server.to(opponentsSocketId).emit('drawPropose');
   }
-  
+
   @SubscribeMessage(Events.acceptDraw)
-  @UseGuards(IsPlayerGuard)
+  @UseGuards(IsPlayerGuardGateway)
   async handleDrawAccepted(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string,
   }) {
@@ -220,7 +215,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(Events.denyDraw)
-  @UseGuards(IsPlayerGuard)
+  @UseGuards(IsPlayerGuardGateway)
   async handleDrawDenied(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string,
   }) {
@@ -230,17 +225,21 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(Events.surrender)
-  @UseGuards(IsPlayerGuard)
+  @UseGuards(IsPlayerGuardGateway)
   async handleSurrender(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string,
   }) {
     console.log(`[${client.id}] surrender in ${payload.roomId} room.`);
-    const room = await this.roomService.surrender(client.data.userId, payload.roomId);
-    this.server.to(room.id).emit('roomData', room);
+    try {
+      const room = await this.roomService.surrender(client.data.userId, payload.roomId);
+      this.server.to(room.id).emit('roomData', room);
+    } catch (error) {
+      this.server.to(client.id).emit('generalError', error.message ? error.message : error)
+    }
   }
 
   @SubscribeMessage(Events.timeRunOut)
-  @UseGuards(IsPlayerGuard)
+  @UseGuards(IsPlayerGuardGateway)
   async handleTimeRunOut(@ConnectedSocket() client: Socket, @MessageBody() payload: {
     roomId: string;
     side: string;
@@ -249,8 +248,6 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = await this.roomService.sideLoseOnTime(payload.roomId, payload.side);
     this.server.to(room.id).emit('roomData', room);
   }
-
-  /// TODO: clean code
 
   @SubscribeMessage('error')
   handleError(client: Socket, error: string): void {

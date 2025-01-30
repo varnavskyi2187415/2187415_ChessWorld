@@ -6,6 +6,7 @@ export class RoomDto {
     public blackUserId: string,
     public gamePGN: string,
     public gameStatus: string,
-    public stockfishDepth: number
+    public stockfishDepth: number,
+    public result: string,
   ) {}
 }

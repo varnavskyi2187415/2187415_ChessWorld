@@ -1,4 +1,4 @@
-import {Inject, Injectable, NotImplementedException} from '@nestjs/common';
+import {Inject, Injectable, NotImplementedException, Res} from '@nestjs/common';
 import {InjectRepository} from "@nestjs/typeorm";
 import {Room} from "./entities/Room";
 import {Repository} from "typeorm";
@@ -7,6 +7,7 @@ import {Chess, Move} from "chess.js";
 import {StockfishService} from "./stockfish.service";
 import {ClientProxy} from "@nestjs/microservices";
 import {RoomDto} from "./dtos/room.dto";
+import {getRedisClient} from "../utils/redis.service";
 
 @Injectable()
 export class RoomService {
@@ -19,7 +20,7 @@ export class RoomService {
   }
 
   private timers: Map<string, NodeJS.Timeout> = new Map();
-  
+
   getPlayersForBotGame(player: Attendee, stockfish: Attendee, selectedSide: string): {
     whitePlayer: Attendee,
     blackPlayer: Attendee
@@ -55,7 +56,7 @@ export class RoomService {
     return +timeControl.split('|')[1];
   }
 
-  isBotGame(pgn: string): 'w' | 'b' | null {
+  getBotSide(pgn: string): 'w' | 'b' | null {
     const game = new Chess();
     game.loadPgn(pgn.normalize("NFD"));
     const headers = game.header();
@@ -114,38 +115,39 @@ export class RoomService {
   }
 
   placeRoomInStatistic(room: Room) {
-    const roomDto = new RoomDto(room.id, room.title, room.whiteUserId, room.blackUserId, room.gamePGN, room.gameStatus, room.stockfishDepth);
+    const game = new Chess();
+    game.loadPgn(room.gamePGN);
+    const result = game.header()['Result'];
+    if (!result)
+      return {message: 'Result is not defined.'};
+    const roomDto = new RoomDto(
+      room.id,
+      room.title,
+      room.whiteUserId,
+      room.blackUserId,
+      room.gamePGN,
+      room.gameStatus,
+      room.stockfishDepth,
+      result
+    );
     this.rabbitmqClient.emit('statistics-queue', roomDto);
     return {message: 'Service has placed statistics for user!'};
   }
 
   async createRoomWithBot(userId: string, userEmail: string, selectedSide: string, botDepth: number, timeControl: string): Promise<Room> {
+
     const player = new Attendee();
     player.userId = userId;
+    player.isPlayer = true;
 
     const stockfish = new Attendee();
     stockfish.userId = this.tempGetUUIDForStockfish();
     stockfish.isPlayer = true;
 
-    const game = new Chess();
     const {whitePlayer, blackPlayer} = this.getPlayersForBotGame(player, stockfish, selectedSide);
-
-    game.header('White', whitePlayer.userId);
-    game.header('Black', blackPlayer.userId);
-    game.header('Date', (new Date()).toUTCString());
-    game.header('TimeControl', timeControl);
-
-    const room = new Room();
-    room.title = `Game with stockfish of ${userEmail}`;
-    room.whiteUserId = whitePlayer.userId;
-    room.blackUserId = blackPlayer.userId;
-    room.gamePGN = game.pgn();
-    room.gameStatus = this.getGameStatus(game);
-    room.attendees = [stockfish];
+    const room = await this.createRoomForUsers(whitePlayer.userId, blackPlayer.userId, timeControl);
     room.stockfishDepth = botDepth;
     await this.roomRepo.save(room);
-    stockfish.room = room;
-    await this.attendeesRepo.save(stockfish);
     return room;
   }
 
@@ -192,7 +194,6 @@ export class RoomService {
     game.header('White', white.userId);
     game.header('Black', black.userId);
     game.header('Date', (new Date()).toUTCString());
-
     const room = new Room();
     room.title = `Game of ${whiteId} vs ${blackId}`
     room.whiteUserId = whiteId;
@@ -243,7 +244,6 @@ export class RoomService {
   }
 
   async getRoomByTitle(title: string): Promise<Room> {
-    //return await this.roomRepo.findOneBy({title: title});
     return await this.roomRepo.createQueryBuilder('room')
       .leftJoinAndSelect('room.attendees', 'attendee')
       .where('room.title = :title', {title})
@@ -251,10 +251,16 @@ export class RoomService {
   }
 
   async getRoomById(id: string): Promise<Room> {
-    return await this.roomRepo.createQueryBuilder('room')
-      .leftJoinAndSelect('room.attendees', 'attendee')
+    const room = await this.roomRepo.createQueryBuilder('room')
       .where('room.id = :id', {id})
       .getOne();
+    room.attendees = await this.attendeesRepo.find({
+      where:
+        {
+          room: room,
+        }
+    });
+    return room;
   }
 
   async addAttendeeToRoom(id: string, user: Attendee): Promise<void | string> {
@@ -445,10 +451,7 @@ export class RoomService {
 
   async getSocketIdOfOpponent(userId: string, roomId: string) {
     const room = await this.getRoomById(roomId);
-    console.log('ROOOOM', room)
     const opponentId = room.whiteUserId === userId ? room.blackUserId : room.whiteUserId;
-    console.log('opponentId', opponentId);
-    console.log('playerId', userId);
     return room.attendees.filter(a => a.userId === opponentId)[0]?.socketId;
   }
 
@@ -469,6 +472,9 @@ export class RoomService {
     const room = await this.getRoomById(roomId);
     const game = new Chess();
     game.loadPgn(room.gamePGN);
+    if (game.moveNumber() <= 2) {
+      throw "You cannot surrender without making any moves";
+    }
     game.header('Termination', 'surrender');
     if (!game.header()['Result']) {
       const result = userId === room.whiteUserId ? '0-1' : '1-0';
@@ -479,5 +485,27 @@ export class RoomService {
     await this.roomRepo.save(room);
     this.placeRoomInStatistic(room);
     return room;
+  }
+
+  isPlayer(userId: string, roomId: string) {
+    const redisClient = getRedisClient();
+    return redisClient.get(`${userId}|${roomId}`).then((result) => {
+      if (result === '0') {
+        return false;
+      } else if (result === '1') {
+        return true;
+      }
+      return this.isPlayerInRoom(userId, roomId).then((result) => {
+        redisClient.set(`${userId}|${roomId}`, result ? '1' : '0', {EX: 300})
+          .catch(e => console.log('SET ERROR', e));
+        return result;
+      }).catch(e => {
+        console.log('QUERY ERROR', e);
+        return false;
+      })
+    }).catch(e => {
+      console.log('GET ERROR', e);
+      return false;
+    });
   }
 }

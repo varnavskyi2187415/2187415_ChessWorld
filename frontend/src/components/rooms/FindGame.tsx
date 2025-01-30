@@ -126,11 +126,9 @@ const FindGame = () => {
               </BasicColumn>
           </>
           }
-          
           <Button variant="contained" onClick={handleFindGame} className="m-1" disabled={isInFindGame}>Find game</Button>
           {isInFindGame && <Button variant={'contained'} onClick={handleStopFind} className={'m-1'}>Stop find</Button>}
         </BasicColumn>
-
       </Card>
     </>
   );

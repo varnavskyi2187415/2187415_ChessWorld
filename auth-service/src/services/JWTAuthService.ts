@@ -13,17 +13,20 @@ export class JWTAuthService {
     private publicKey = fs.readFileSync(path.resolve(__dirname, "../config/jwt/keys/public.key"), "utf8");
     private signOptions: jwt.SignOptions = {
         algorithm: "RS256",
-        expiresIn: "15d",
     };
 
+    private getSignOptions(isRefresh: boolean): jwt.SignOptions{
+        return {...this.signOptions, expiresIn: isRefresh ? "15d" : "30s"};
+    }
+    
     // Універсальний метод для генерації JWT
-    private generateJWT(user: User, isRefresh: boolean): string {
+    private generateJWT(user: User, isRefresh: boolean): string { 
         const payload = {
             id: user.id,
             email: user.email,
             isRefresh,
         };
-        return jwt.sign(payload, this.privateKey, this.signOptions);
+        return jwt.sign(payload, this.privateKey, this.getSignOptions(isRefresh));
     }
 
     // Генерація refresh токена
@@ -69,9 +72,12 @@ export class JWTAuthService {
     // Метод валідації refresh токена
     public async validateRefresh(token: string) {
         if (!token) return null;
-
+        if (token.startsWith('Bearer ')){
+            token = token.split(' ')[1];
+        }
+        
         const refreshPayload = jwt.verify(token, this.publicKey, { algorithms: ["RS256"] }) as JwtPayload;
-
+        
         // Перевірка, чи це refresh токен
         if (!refreshPayload || !refreshPayload["isRefresh"]) {
             return null;

@@ -18,7 +18,7 @@ const Game = () => {
   const navigate = useNavigate();
   const [drawOfferRecieved, setDrawOfferRecieved] = useState(false);
   const [isDrawAccepted, setIsDrawAccepted] = useState(false);
-  
+
 
   useEffect(() => {
     socket.connect();
@@ -39,6 +39,7 @@ const Game = () => {
     function handleUserJoined(user: Attendee) {
       toast.info(`User ${user.userId} joined.`);
     }
+
     function handleUserLeaved(user: Attendee) {
       toast.info(`User ${user.userId} leaved.`);
     }
@@ -51,20 +52,25 @@ const Game = () => {
       clearRoomAndNavigateHome(error);
     }
 
+    function handleGeneralError(error: string) {
+      toast.info(error);
+    }
+
     function handleCurrentTime(payload: { whiteTime: number, blackTime: number }) {
       dispatch(setCurrentTime(payload));
     }
-    
-    function handleDrawOffer(){
+
+    function handleDrawOffer() {
       setDrawOfferRecieved(true);
     }
 
     function handelDrawDenied() {
       toast.info(`Draw offer denied.`);
     }
-    
+
     socket.on('roomData', handleRoomData);
     socket.on('joinError', handleJoinError);
+    socket.on('generalError', handleGeneralError);
     socket.on('joinedOnOtherDevice', handleJoinedOnOtherDevice);
     socket.on('userJoined', handleUserJoined);
     socket.on('userLeaved', handleUserLeaved);
@@ -109,8 +115,7 @@ const Game = () => {
     if (!currentRoom || !isSocketReady) return;
     const game = new Chess();
     game.loadPgn(currentRoom?.gamePGN);
-    if (game.moveNumber() < 2)
-    {
+    if (game.moveNumber() < 2) {
       toast.error('Draw cannot be proposed before 2 moves made.')
       return;
     }
@@ -122,7 +127,7 @@ const Game = () => {
     console.log('denyDraw emited');
     setDrawOfferRecieved(false);
   }
-  
+
   const OnClose = (
     event: React.SyntheticEvent | Event,
     reason?: SnackbarCloseReason,
@@ -130,7 +135,7 @@ const Game = () => {
     if (!isDrawAccepted)
       handleDenyDraw();
   };
-  
+
   const handleAcceptDraw = () => {
     socket.emit('room:acceptDraw', {roomId: currentRoom?.id})
     console.log('acceptDraw emited');
@@ -148,19 +153,18 @@ const Game = () => {
       </Button>
     </React.Fragment>
   );
-  
+
   return (<>
     <div>
       <ButtonGroup>
-        
-      <Button variant={'contained'} color={'error'} onClick={handleDeleteRoom}>Delete room</Button>
+        <Button variant={'contained'} color={'error'} onClick={handleDeleteRoom}>Delete room</Button>
         <Button variant={'contained'} color={'error'} onClick={handleLeaveRoom}>Leave</Button>
         <Button variant={'contained'} color={'warning'} onClick={handleSurrender}>Surrender</Button>
         <Button variant={'contained'} color={'warning'} onClick={handleDrawOffer}>Propose draw</Button>
       </ButtonGroup>
       <Board/>
     </div>
-    <Snackbar 
+    <Snackbar
       open={drawOfferRecieved}
       autoHideDuration={6000}
       onClose={OnClose}

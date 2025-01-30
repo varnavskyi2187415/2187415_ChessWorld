@@ -34,7 +34,6 @@ const AllActiveGamesList = () => {
           <TableHead>
               <TableRow>
                   <TableCell>Title</TableCell>
-                  <TableCell align="right">Creation date</TableCell>
                   <TableCell align="right">Actions</TableCell>
               </TableRow>
           </TableHead>
@@ -42,11 +41,9 @@ const AllActiveGamesList = () => {
             {allRooms.map(room =>
               <TableRow key={room.id}>
                 <TableCell>{room.title}</TableCell>
-                <TableCell>{room.creationDate && new Date(room.creationDate).toUTCString()}</TableCell>
                 <TableCell>
                   <ButtonGroup>
                     <Button color={'success'} onClick={() => onJoinClick(room.id)}>Join</Button>
-                    <Button color={'warning'}>Abandon</Button>
                   </ButtonGroup>
                 </TableCell>
               </TableRow>)}

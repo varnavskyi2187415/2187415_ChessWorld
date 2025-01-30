@@ -176,8 +176,6 @@ const Board = () => {
                   </DialogContentText>
               </DialogContent>
               <DialogActions>
-                  <Button>Rematch</Button>
-                  <Button>Leave</Button>
                   <Button onClick={() => setShowGameOver(false)}>Close</Button>
               </DialogActions>
           </Dialog>

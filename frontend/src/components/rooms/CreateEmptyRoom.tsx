@@ -34,6 +34,7 @@ const CreateEmptyRoom = () => {
     console.log('isSocketReady, isInCreateEmptyRoom', isSocketReady, isInCreateEmptyRoom);
     if (!isSocketReady || !isInCreateEmptyRoom) return;
     socket.emit('user:createRoom', {selectedSide, timeControl});
+    dispatch(setInCreateEmptyRoom(false));
   }, [isSocketReady, isInCreateEmptyRoom]);
 
   return (<>

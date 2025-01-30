@@ -23,6 +23,10 @@ export function GetUserEmail(accessToken: string) {
 }
 
 export function GetUserIdFromReq(request: Request) {
-  const jwt = (request.headers as any).authorization.replace('Bearer ', '');
+  const jwt = (request.headers as any)?.authorization?.replace('Bearer ', '');
   return GetUserId(jwt);
+}
+
+export function GetToken(request: Request){
+  return ((request.headers as any)?.authorization as string)?.replace('Bearer ', '');
 }
